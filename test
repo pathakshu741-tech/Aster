@@ -1,0 +1,58 @@
+import os
+import json
+from collections import Counter
+
+BASE_DIR = os.path.join(os.path.expanduser("~"), ".ava_assistant")
+CHATS_DIR = os.path.join(BASE_DIR, "chats")
+
+print(f"Looking in: {CHATS_DIR}\n")
+
+if not os.path.isdir(CHATS_DIR):
+    print("That folder does not exist. Nothing to diagnose.")
+    raise SystemExit
+
+files = [f for f in os.listdir(CHATS_DIR) if f.endswith(".json")]
+print(f"Found {len(files)} chat file(s):\n")
+
+ids_seen = Counter()
+titles_seen = Counter()
+
+for fname in sorted(files):
+    path = os.path.join(CHATS_DIR, fname)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"  [{fname}] -> FAILED TO READ: {e}")
+        continue
+
+    file_stem_id = fname[:-5]  # filename without .json
+    content_id = data.get("id")
+    title = data.get("title")
+    n_messages = len(data.get("messages", []))
+    updated_at = data.get("updated_at")
+
+    mismatch = " <<<< FILENAME/ID MISMATCH!" if content_id != file_stem_id else ""
+    print(f"  file={fname}")
+    print(f"    content id : {content_id}{mismatch}")
+    print(f"    title      : {title!r}")
+    print(f"    messages   : {n_messages}")
+    print(f"    updated_at : {updated_at}")
+    print()
+
+    ids_seen[content_id] += 1
+    titles_seen[title] += 1
+
+print("---- Summary ----")
+dup_ids = {k: v for k, v in ids_seen.items() if v > 1}
+dup_titles = {k: v for k, v in titles_seen.items() if v > 1}
+
+if dup_ids:
+    print(f"⚠ Duplicate content 'id' values found across files: {dup_ids}")
+else:
+    print("✓ No duplicate content ids across files.")
+
+if dup_titles:
+    print(f"⚠ Titles that repeat across multiple files: {dup_titles}")
+else:
+    print("✓ No duplicate titles across files.")
